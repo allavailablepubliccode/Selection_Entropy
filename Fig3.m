@@ -1,15 +1,14 @@
 % Generate Fig. 3
-
 clear;clc;close all;
 
 sigr        = 1:0.0001:2;   % range of standard deviations
-states      = 100;          % number of bins
+states      = 10;          % number of bins
 x           = -10:0.001:10; % range for gaussians 
 
 for ii      = 1:numel(sigr)
 
-    if mod(ii,100)==0
-        disp([num2str(ii) '/' num2str(numel(sigr))])
+    if mod(ii,1000)==0
+        disp(['generating Fig. 3, ' num2str(round(ii*100/numel(sigr)),10) '% complete' ])
     end
 
     % standard deviations for the two gaussians
@@ -32,29 +31,25 @@ for ii      = 1:numel(sigr)
     x2      = find(pn<pm);
     nums(ii) = numel(x1)/numel(x2);
 
-    % calculate the two flavours of selection entropy
-    % i.e. select N from M, and M from N
+    % calculate selection entropy
     SE1(ii) = sum(pm(x1).*log2(pn(x1)./pm(x1)-1)-pn(x1).*log2(1-pm(x1)./pn(x1)));
     SE2(ii) = sum(pn(x2).*log2(pm(x2)./pn(x2)-1)-pm(x2).*log2(1-pn(x2)./pm(x2)));
 
 end
-% save('lub.mat','KL','SE1','SE2')
-% 
-% load('lub.mat')
+
+SE = SE1 + SE2;
 
 % plot results
 figure
+subplot(2,2,2)
 plot3(sigr-1.5, zeros(size(KL)), normalize(KL,'range'), 'k','Linewidth',1.5)
 hold on
-plot3(sigr-1.5, zeros(size(KL)), normalize(SE1,'range'), 'k','Linewidth',5)
+plot3(sigr-1.5, zeros(size(SE)), normalize(SE,'range'), 'k','Linewidth',5)
 hold off
 axis tight
 grid on
 grid minor
 view(43,56)
-% set(gcf,'Renderer','Painter')
-% hgexport(gcf,'~/Desktop/lub1.eps');
-% close all
 
 x(x<-6)=[];
 x(x>6)=[];
@@ -64,7 +59,7 @@ bb = [ones(bb,1) ; zeros(bb,1)];
 bb = repmat(bb,round(size(x,2)/numel(bb)),1);
 bb(numel(bb)+1) = 0;
 
-figure
+subplot(2,2,3)
 hold on
 c = -1;
 for ii      = [1, floor(numel(sigr)/2), numel(sigr)]
@@ -90,6 +85,3 @@ view(43,56)
 axis tight
 grid on 
 grid minor
-% set(gcf,'Renderer','Painter')
-% hgexport(gcf,'~/Desktop/lub2.eps');
-% close all
