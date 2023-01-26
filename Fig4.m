@@ -3,12 +3,14 @@
 % requires BrainSpace
 % (https://brainspace.readthedocs.io/en/latest/index.html)
 
+% requires function smooth2a
+% https://uk.mathworks.com/matlabcentral/fileexchange/23287-smooth2a
+
 clear;clc;close all;
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% load HCP data
+
 % ddir   = '~/Dropbox/HCP/rest/';
-% gdir   = '~/Dropbox/Schaeffer/';
-% gr     = 3;
 % subs   = {'rest_hcp100307_ts';...
 %     'rest_hcp100408_ts';...
 %     'rest_hcp101107_ts';...
@@ -38,39 +40,41 @@ clear;clc;close all;
 %     'rest_hcp123117_ts';...
 %     'rest_hcp124422_ts';...
 %     'rest_hcp125525_ts'};
-% g      = load([gdir '/' num2str(gr)]);
 % z      = [];
 % for ii = 1:numel(subs)
-%     ii
+%     disp(['loading data, ' num2str(round(ii*100/numel(subs))) '% complete'])
 %     zt = load([ddir subs{ii}]);
 %     z  = cat(3,z,zt);
 % end
-% save('zdat_gr3.mat','z')
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% save('HCP_data.mat','z')
 
-load('zdat_gr3.mat','z')
-
-states = 100;
+load('HCP_data.mat','z')
+states = 10;
+grpin = 10;
 
 for ii = 1:size(z,3)
-    ii
+
+    disp(['generating Fig. 4, ' num2str(round(ii*100/size(z,3))) '% complete'])
 
     z1 = z(:,:,ii);
 
-    for jj = 1:size(z1,2)
+    for jj = 1:size(z1,2)-grpin+1
 
-        z2 = z1(:,jj);
+        % first probability distribution
+        z2 = z1(:,jj:jj+grpin-1);
         n  = histcounts(z2(:),states);
         N  = sum(n);
         pn = n/N;
 
-        for kk = 1:size(z1,2)
+        for kk = 1:size(z1,2)-grpin+1
 
-            z3 = z1(:,kk);
+            % second probability distribution
+            z3 = z1(:,kk:kk+grpin-1);
             m  = histcounts(z3(:),states);
             M  = sum(m);
             pm = m/M;
 
+            % KL divergence
             KLt = pn.*log2(pn./pm);
             KLt(find(isinf(KLt))) = nan;
             KL(jj,kk,ii)          = nansum(KLt);
@@ -80,17 +84,13 @@ for ii = 1:size(z,3)
 
             nums(jj,kk,ii) = numel(x1)/numel(x2);
 
+            % Selection entropy
             SE1(jj,kk,ii) = nansum(pm(x1).*log2(pn(x1)./pm(x1)-1)-pn(x1).*log2(1-pm(x1)./pn(x1)));
             SE2(jj,kk,ii) = nansum(pn(x2).*log2(pm(x2)./pn(x2)-1)-pm(x2).*log2(1-pn(x2)./pm(x2)));
 
         end
     end
 end
-% save('SEdat_gr3.mat','KL','SE1','SE2')
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-% load('SEdat_gr3.mat')
 
 KLm  = nanmean(KL,3);
 SE1m = nanmean(SE1,3);
@@ -100,84 +100,59 @@ KLm(logical(eye(size(KLm))))   = nan;
 SE1m(logical(eye(size(SE1m)))) = nan;
 SE2m(logical(eye(size(SE2m)))) = nan;
 
-SEm = SE1m;
+SEm = SE1m + SE2m;
+
+smthwin = 10;
 
 figure
-imagesc2(KLm)
+subplot(2,2,1)
+KLm2 = smooth2a(KLm,smthwin);
+imagesc2(KLm2)
 colormap gray
 colorbar
 title('KL')
 
-figure
-imagesc2(SEm)
+subplot(2,2,2)
+SEm2 = smooth2a(SEm,smthwin);
+imagesc2(SEm2)
 colormap gray
 colorbar
 title('SE')
 
-N = 5;
+N = 2^4;
+t = 2^4;
 
-figure;
-dat = nanmean(KLm);
-dat = smoothlub(dat,N);
-[r_kl,p_kl] = corr((1:numel(dat))',dat');
-plot(dat);
+subplot(2,2,3)
+datkl = nanmean(KLm2);
+datkl = smoothdat(datkl,N,t);
+plot(datkl);
 title('KL')
 
-addpath(genpath('~/Dropbox/BrainSpace/matlab/'))
-[surf_lh, surf_rh] = load_conte69();
-labeling           = load_parcellation('schaefer',100);
-conn_matices       = load_group_fc('schaefer',100);
-plot_hemispheres(dat', {surf_lh,surf_rh},'parcellation',labeling.schaefer_100,'views','lmisap');
-% set(gcf,'Renderer','Painter')
-% hgexport(gcf,'~/Desktop/kl_0_90.eps');
-% close all
-
-figure;
-dat = nanmean(SEm);
-dat = smoothlub(dat,N);
-[r_se,p_se] = corr((1:numel(dat))',dat');
-plot(dat);
-title('se')
+subplot(2,2,4)
+datse = nanmean(SEm2);
+datse = smoothdat(datse,N,t);
+plot(datse);
+title('SE')
 axis tight
 
-addpath(genpath('~/Dropbox/BrainSpace/matlab/'))
-[surf_lh, surf_rh] = load_conte69();
-labeling           = load_parcellation('schaefer',100);
-conn_matices       = load_group_fc('schaefer',100);
-plot_hemispheres(dat', {surf_lh,surf_rh},'parcellation',labeling.schaefer_100,'views','lmisap');
-% set(gcf,'Renderer','Painter')
-% hgexport(gcf,'~/Desktop/90_0.eps');
-% close all
-% [0 90], [-90 0], [90, 0]
+nums = 10;
+c = 1;
+for ii = 1:nums
 
-figure
-dat = squeeze(z(:,1,2));
-dat = normalize(dat,'range');
-plot(dat)
-title('raw','k')
+    disp([num2str(ii) ', ' num2str(c:c+100/nums-1)])
+    
+    dat = ones(1,100);
+    dat(c:c+100/nums-1) = 0;
+    addpath(genpath('~/Dropbox/BrainSpace/matlab/'))
+    [surf_lh, surf_rh] = load_conte69();
+    labeling           = load_parcellation('schaefer',100);
+    conn_matices       = load_group_fc('schaefer',100);
+    plot_hemispheres(dat', {surf_lh,surf_rh},'parcellation',labeling.schaefer_100,'views','ms');
+    c = c + 100/nums;
+end
 
-figure
-[bincounts,edg] = histcounts(dat,100);
-bincounts = bincounts/sum(bincounts);
-histogram('BinCounts', bincounts, 'BinEdges', edg);
-
-% c = 1;
-% for ii = 1:4
-%     ii
-%     dat = ones(1,100);
-%     dat(c:c+24) = 0;
-%     addpath(genpath('~/Dropbox/BrainSpace/matlab/'))
-%     [surf_lh, surf_rh] = load_conte69();
-%     labeling           = load_parcellation('schaefer',100);
-%     conn_matices       = load_group_fc('schaefer',100);
-%     plot_hemispheres(dat', {surf_lh,surf_rh},'parcellation',labeling.schaefer_100,'views','ms');
-% %     set(gcf,'Renderer','Painter')
-% %     hgexport(gcf,['~/Desktop/lub' num2str(ii) '.eps']);
-% %     close all
-%     c = c + 25;
-% end
-function B = smoothlub(B,N)
+function B = smoothdat(B,N,t)
 for ii = 1:N
-    B = movmean(B,4);
+    B = movmean(B,t);
 end
 end
