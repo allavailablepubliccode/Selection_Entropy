@@ -1,7 +1,4 @@
-% Generate Fig. 4
-
-% requires BrainSpace
-% (https://brainspace.readthedocs.io/en/latest/index.html)
+% Generate Fig. 5
 
 % requires function smooth2a
 % https://uk.mathworks.com/matlabcentral/fileexchange/23287-smooth2a
@@ -10,6 +7,8 @@ clear;clc;close all;
 
 % load HCP data
 
+% gr = importdata('/Users/erik/Library/CloudStorage/Dropbox/Margulies/1');
+% [a,b] = sort(gr);
 % ddir   = '~/Dropbox/HCP/rest/';
 % subs   = {'rest_hcp100307_ts';...
 %     'rest_hcp100408_ts';...
@@ -44,32 +43,33 @@ clear;clc;close all;
 % for ii = 1:numel(subs)
 %     disp(['loading data, ' num2str(round(ii*100/numel(subs))) '% complete'])
 %     zt = load([ddir subs{ii}]);
+%     zt = zt(:,b);
+%     zt = detrend(zt,1,50:50:1200);
 %     z  = cat(3,z,zt);
 % end
 % save('HCP_data.mat','z')
 
 load('HCP_data.mat','z')
-states = 10;
-grpin = 10;
+states = 100;
 
 for ii = 1:size(z,3)
 
-    disp(['generating Fig. 4, ' num2str(round(ii*100/size(z,3))) '% complete'])
+    disp(['generating Fig. 5, ' num2str(round(ii*100/size(z,3))) '% complete'])
 
     z1 = z(:,:,ii);
 
-    for jj = 1:size(z1,2)-grpin+1
+    for jj = 1:size(z1,2)
 
         % first probability distribution
-        z2 = z1(:,jj:jj+grpin-1);
+        z2 = z1(:,jj);
         n  = histcounts(z2(:),states);
         N  = sum(n);
         pn = n/N;
 
-        for kk = 1:size(z1,2)-grpin+1
+        for kk = 1:size(z1,2)
 
             % second probability distribution
-            z3 = z1(:,kk:kk+grpin-1);
+            z3 = z1(:,kk);
             m  = histcounts(z3(:),states);
             M  = sum(m);
             pm = m/M;
@@ -102,57 +102,74 @@ SE2m(logical(eye(size(SE2m)))) = nan;
 
 SEm = SE1m + SE2m;
 
-smthwin = 10;
+smthwin = 2^2;
 
 figure
-subplot(2,2,1)
+subplot(3,2,3)
 KLm2 = smooth2a(KLm,smthwin);
 imagesc2(KLm2)
 colormap gray
 colorbar
 title('KL')
 
-subplot(2,2,2)
+subplot(3,2,4)
 SEm2 = smooth2a(SEm,smthwin);
 imagesc2(SEm2)
 colormap gray
 colorbar
 title('SE')
 
-N = 2^4;
-t = 2^4;
+for ii = 1:99
+    a_se_m(ii) = nanmean(diag(SEm,ii));
+    a_kl_m(ii) = nanmean(diag(KLm,ii));
+    b_se_m(ii) = nanmean(diag(SEm,-ii));
+    b_kl_m(ii) = nanmean(diag(KLm,-ii));
 
-subplot(2,2,3)
-datkl = nanmean(KLm2);
-datkl = smoothdat(datkl,N,t);
-plot(datkl);
-title('KL')
-
-subplot(2,2,4)
-datse = nanmean(SEm2);
-datse = smoothdat(datse,N,t);
-plot(datse);
-title('SE')
-axis tight
-
-nums = 10;
-c = 1;
-for ii = 1:nums
-
-    disp([num2str(ii) ', ' num2str(c:c+100/nums-1)])
-    
-    dat = ones(1,100);
-    dat(c:c+100/nums-1) = 0;
-    addpath(genpath('~/Dropbox/BrainSpace/matlab/'))
-    [surf_lh, surf_rh] = load_conte69();
-    labeling           = load_parcellation('schaefer',100);
-    conn_matices       = load_group_fc('schaefer',100);
-    plot_hemispheres(dat', {surf_lh,surf_rh},'parcellation',labeling.schaefer_100,'views','ms');
-    c = c + 100/nums;
+    a_se_s(ii) = nanstd(diag(SEm,ii))/sqrt(99-ii+1);
+    a_kl_s(ii) = nanstd(diag(KLm,ii))/sqrt(99-ii+1);
+    b_se_s(ii) = nanstd(diag(SEm,-ii))/sqrt(99-ii+1);
+    b_kl_s(ii) = nanstd(diag(KLm,-ii))/sqrt(99-ii+1);
 end
+c_se_m = mean([a_se_m;b_se_m]);
+c_kl_m = mean([a_kl_m;b_kl_m]);
 
-function B = smoothdat(B,N,t)
-for ii = 1:N
-    B = movmean(B,t);
-end
-end
+c_se_s = mean([a_se_s;b_se_s]);
+c_kl_s = mean([a_kl_s;b_kl_s]);
+
+subplot(3,2,6)
+errorbar(c_se_m,c_se_s)
+title('se')
+subplot(3,2,5)
+errorbar(c_kl_m,c_kl_s)
+title('kl')
+
+subplot(3,2,1)
+dat = squeeze(z(:,1,1));
+dat = normalize(dat,'range');
+plot(dat)
+title('raw','k')
+
+subplot(3,2,2)
+[bincounts,edg] = histcounts(dat,states);
+bincounts = bincounts/sum(bincounts);
+histogram('BinCounts', bincounts, 'BinEdges', edg);
+
+% requires BrainSpace
+% (https://brainspace.readthedocs.io/en/latest/index.html)
+
+% nums = 4;
+% c = 1;
+% for ii = 1:nums
+% 
+%     disp([num2str(ii) ', ' num2str(c:c+100/nums-1)])
+%     
+%     dat = ones(1,100);
+%     dat(b(c:c+100/nums-1)) = 0;
+%     addpath(genpath('~/Dropbox/BrainSpace/matlab/'))
+%     [surf_lh, surf_rh] = load_conte69();
+%     labeling           = load_parcellation('schaefer',100);
+%     conn_matices       = load_group_fc('schaefer',100);
+%     plot_hemispheres(dat', {surf_lh,surf_rh},'parcellation',labeling.schaefer_100,'views','ms');
+%     c = c + 100/nums;
+% 
+% end
