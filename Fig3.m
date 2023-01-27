@@ -2,7 +2,7 @@
 clear;clc;close all;
 
 sigr        = 1:0.0001:2;   % range of standard deviations
-states      = 10;          % number of bins
+states      = 100;          % number of bins
 x           = -10:0.001:10; % range for gaussians 
 
 for ii      = 1:numel(sigr)
