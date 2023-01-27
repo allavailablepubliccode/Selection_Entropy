@@ -47,9 +47,15 @@ clear;clc;close all;
 %     zt = detrend(zt,1,50:50:1200);
 %     z  = cat(3,z,zt);
 % end
-% save('HCP_data.mat','z')
+% z_1 = z(:,:,1:15);
+% z_2 = z(:,:,16:end);
+% save('HCP_data_1.mat','z_1')
+% save('HCP_data_2.mat','z_2')
 
-load('HCP_data.mat','z')
+load('HCP_data_1.mat')
+load('HCP_data_2.mat')
+z = cat(3,z_1,z_2);
+clear z_1 z_2
 states = 100;
 
 for ii = 1:size(z,3)
